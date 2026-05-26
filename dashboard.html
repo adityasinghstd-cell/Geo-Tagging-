@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriMandi | Farmer Dashboard</title>
+    
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    
+    <!-- Bootstrap 5 & Leaflet -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary-green: #2d6a4f;
+            --light-green: #d8f3dc;
+            --accent-gold: #ffb703;
+            --soil-brown: #403d39;
+            --bg-cream: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--bg-cream);
+            color: var(--soil-brown);
+        }
+
+        .agri-navbar { 
+            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
+            padding: 1rem 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .stat-card {
+            background: white; border: none; border-radius: 16px; padding: 1.5rem;
+            transition: all 0.3s ease; border-bottom: 4px solid transparent;
+        }
+        .stat-card:hover {
+            transform: translateY(-8px); box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+            border-bottom: 4px solid var(--primary-green);
+        }
+        .icon-circle {
+            width: 50px; height: 50px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; margin-bottom: 1rem;
+        }
+
+        .table-container {
+            background: white; border-radius: 20px; padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #eee;
+        }
+        
+        .table thead th {
+            background: transparent; color: #888; font-weight: 600;
+            text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .land-row:hover { background-color: #f1f8f5; cursor: default; }
+        #modalMap { height: 300px; border-radius: 12px; }
+        
+        .btn-agri {
+            background: var(--primary-green); color: white; border-radius: 10px;
+            padding: 10px 24px; font-weight: 600; transition: all 0.3s; border: none;
+        }
+        .btn-agri:hover { background: #1b4332; color: white; transform: scale(1.02); }
+
+        .lead-card {
+            background: #fff; border-radius: 15px; border: 1px solid #eee; transition: all 0.3s;
+        }
+        .lead-card:hover { border-color: var(--primary-green); background: #fdfdfd; }
+        
+        .btn-action { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark agri-navbar mb-5 animate__animated animate__fadeInDown">
+    <div class="container">
+        <a class="navbar-brand fw-extrabold fs-4" href="#">
+            <i class="fa-solid fa-seedling me-2 text-warning"></i>GeoTagging
+        </a>
+        <div class="d-flex align-items-center">
+            <div class="text-light me-4 d-none d-md-block text-end">
+                <small class="opacity-75 d-block">Farmer Account</small>
+                <span id="userGreeting" class="fw-bold text-warning">0000000000</span>
+            </div>
+            <button class="btn btn-outline-light rounded-pill px-4 btn-sm fw-bold" onclick="logout()">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container animate__animated animate__fadeInUp">
+    
+    <!-- STATS ROW -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="icon-circle bg-success bg-opacity-10 text-success"><i class="fa-solid fa-mountain-sun"></i></div>
+                <h6 class="text-muted mb-1">Total Acreage</h6>
+                <h3 class="fw-bold" id="statAcres">0.0</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="icon-circle bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-chart-line"></i></div>
+                <h6 class="text-muted mb-1">Portfolio Value</h6>
+                <h3 class="fw-bold" id="statValuation">₹ 0.0 Cr</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="icon-circle bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-list-check"></i></div>
+                <h6 class="text-muted mb-1">Active Listings</h6>
+                <h3 class="fw-bold" id="statCount">0</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- MY LANDS TABLE -->
+    <div class="table-container mb-5 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold m-0 text-success"><i class="fa-solid fa-map-location-dot me-2"></i>My Registered Lands</h4>
+            <button class="btn btn-agri shadow-sm" data-bs-toggle="modal" data-bs-target="#addListingModal">
+                <i class="fa-solid fa-plus me-2"></i>Register New Land
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Location</th>
+                        <th>Size (Acres)</th>
+                        <th>Ask Price</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="listingsTableBody">
+                    <tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-success"></div></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- BUYER LEADS SECTION -->
+    <div class="table-container mb-5 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold m-0 text-success"><i class="fa-solid fa-envelope-open-text me-2"></i>Recent Buyer Leads</h4>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill border" id="leadCountBadge">0 Leads</span>
+                <button class="btn btn-light btn-sm rounded-pill" onclick="loadInquiries()"><i class="fa-solid fa-rotate"></i></button>
+            </div>
+        </div>
+
+        <div class="row g-3" id="inquiryCardsContainer">
+            <div class="col-12 text-center py-4 text-muted">Checking for interested buyers...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ADD LAND MODAL -->
+<div class="modal fade" id="addListingModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-lg-4 p-5 bg-light" style="border-radius: 24px 0 0 24px;">
+                        <h3 class="fw-bold mb-4 text-success">New Listing</h3>
+                        <form id="newListingForm">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Size in Acres</label>
+                                <input type="number" step="0.1" class="form-control rounded-3" id="modalAcres" required>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold">Asking Price (₹ Cr)</label>
+                                <input type="number" step="0.01" class="form-control rounded-3" id="modalPrice" required>
+                            </div>
+                            <input type="hidden" id="modalLat" value="28.4744">
+                            <input type="hidden" id="modalLng" value="77.5040">
+                            <button type="submit" class="btn btn-agri w-100 py-3" id="btnSubmitListing">Save Listing</button>
+                        </form>
+                    </div>
+                    <div class="col-lg-8 position-relative">
+                        <div id="modalMap" style="height: 100%; min-height: 450px; border-radius: 0 24px 24px 0;"></div>
+                        <div class="position-absolute top-0 end-0 p-3" style="z-index: 1000;">
+                            <button type="button" class="btn-close bg-white p-2 shadow-sm" data-bs-dismiss="modal"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const loggedInMobile = localStorage.getItem('agri_user_mobile');
+    const userRole = localStorage.getItem('agri_user_role');
+
+    if (!loggedInMobile || userRole !== 'farmer') { window.location.href = 'index.html'; } 
+    else { document.getElementById('userGreeting').innerText = loggedInMobile; }
+
+    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+
+    const map = L.map('modalMap').setView([28.4744, 77.5040], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png').addTo(map);
+    const marker = L.marker([28.4744, 77.5040], { draggable: true }).addTo(map);
+    marker.on('dragend', () => { 
+        document.getElementById('modalLat').value = marker.getLatLng().lat; 
+        document.getElementById('modalLng').value = marker.getLatLng().lng; 
+    });
+    document.getElementById('addListingModal').addEventListener('shown.bs.modal', () => map.invalidateSize());
+
+    // LOAD DATA
+    async function loadTableData() {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/get-listings?mobile=${loggedInMobile}`);
+            const result = await response.json();
+            const tbody = document.getElementById('listingsTableBody');
+            
+            if (result.status === 'success') {
+                tbody.innerHTML = '';
+                let tAcres = 0, tVal = 0, count = 0;
+
+                if (result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No lands registered.</td></tr>';
+                } else {
+                    result.data.forEach(land => {
+                        tAcres += parseFloat(land.Acres);
+                        tVal += parseFloat(land.Expected_Price_Cr); // Using Ask Price for Portfolio Value
+                        if(land.Status === 'Active') count++;
+                        
+                        const statusBadge = land.Status === 'Active' ? 'bg-success' : 'bg-warning text-dark';
+                        const toggleIcon = land.Status === 'Active' ? 'fa-tag' : 'fa-check';
+
+                        tbody.innerHTML += `
+                            <tr class="land-row animate__animated animate__fadeIn">
+                                <td><small class="text-muted">📍 ${parseFloat(land.Lat).toFixed(3)}, ${parseFloat(land.Lng).toFixed(3)}</small></td>
+                                <td class="fw-bold">${land.Acres} Ac</td>
+                                <td>₹ ${land.Expected_Price_Cr} Cr</td>
+                                <td><span class="badge ${statusBadge} rounded-pill px-3">${land.Status}</span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-outline-success btn-action me-1" title="Toggle Sold" onclick="toggleStatus('${land.Lat}', '${land.Lng}', '${land.Status}')">
+                                        <i class="fa-solid ${toggleIcon}"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" title="Delete" onclick="deleteListing('${land.Lat}', '${land.Lng}')">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('statAcres').innerText = tAcres.toFixed(1);
+                document.getElementById('statValuation').innerText = `₹ ${tVal.toFixed(2)} Cr`;
+                document.getElementById('statCount').innerText = count;
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function toggleStatus(lat, lng, currentStatus) {
+        const newStatus = currentStatus === 'Active' ? 'Sold' : 'Active';
+        await fetch('http://127.0.0.1:5000/update-status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mobile: loggedInMobile, lat, lng, status: newStatus })
+        });
+        loadTableData();
+    }
+
+    async function deleteListing(lat, lng) {
+        if(!confirm("Are you sure you want to remove this land?")) return;
+        await fetch('http://127.0.0.1:5000/delete-listing', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mobile: loggedInMobile, lat, lng })
+        });
+        loadTableData();
+    }
+
+    async function loadInquiries() {
+        const container = document.getElementById('inquiryCardsContainer');
+        try {
+            const res = await fetch(`http://127.0.0.1:5000/get-farmer-inquiries?mobile=${loggedInMobile}`);
+            const result = await res.json();
+            document.getElementById('leadCountBadge').innerText = `${result.data.length} Leads`;
+            container.innerHTML = result.data.length ? '' : '<div class="col-12 text-center py-4 text-muted">No inquiries yet.</div>';
+            result.data.forEach(lead => {
+                container.innerHTML += `
+                    <div class="col-md-6 col-lg-4 animate__animated animate__zoomIn">
+                        <div class="card h-100 border-0 shadow-sm p-3 lead-card">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-warning bg-opacity-10 text-dark small px-2 py-1"><i class="fa-solid fa-leaf text-success me-1"></i> ${lead.Acres} Ac</span>
+                            </div>
+                            <h6 class="fw-bold mb-1">Buyer: +91 ${lead.Buyer_Mobile}</h6>
+                            <p class="text-muted small mb-3">"${lead.Message}"</p>
+                            <a href="tel:${lead.Buyer_Mobile}" class="btn btn-agri btn-sm w-100 rounded-pill"><i class="fa-solid fa-phone me-1"></i> Call Buyer</a>
+                        </div>
+                    </div>`;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    document.getElementById('newListingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnSubmitListing');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+        const payload = {
+            Mobile: loggedInMobile, 
+            Acres: document.getElementById('modalAcres').value,
+            Expected_Price_Cr: document.getElementById('modalPrice').value,
+            Lat: document.getElementById('modalLat').value, 
+            Lng: document.getElementById('modalLng').value
+        };
+
+        try {
+            await fetch('http://127.0.0.1:5000/add-listing', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(payload)
+            });
+            
+            bootstrap.Modal.getInstance(document.getElementById('addListingModal')).hide();
+            document.getElementById('newListingForm').reset();
+            loadTableData();
+        } catch (error) {
+            console.error("Failed to save listing:", error);
+            alert("Failed to save listing. Please try again.");
+        } finally {
+            btn.innerHTML = 'Save Listing';
+            btn.disabled = false;
+        }
+    });
+
+    window.onload = () => { loadTableData(); loadInquiries(); };
+</script>
+</body>
+</html>
